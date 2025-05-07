@@ -4,6 +4,10 @@ import (
 	"google.golang.org/grpc"
 	"log/slog"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"vk-Service/task1/subpub"
 	pb "vk-Service/task2/grpc"
 	"vk-Service/task2/internal/config"
@@ -17,15 +21,30 @@ func RunServer(logger *slog.Logger) {
 		return
 	}
 
-	logger.Info("server started", "addr", lis.Addr())
-
 	server := grpc.NewServer()
 	pb.RegisterPubSubServer(server, &handlers.Server{
 		Internal: subpub.NewSubPub(),
 		Logger:   logger,
 	})
-	if err = server.Serve(lis); err != nil {
-		logger.Error("failed to serve", "err", err, "addr", lis.Addr())
-		return
-	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		logger.Info("server started", "addr", lis.Addr())
+		if err = server.Serve(lis); err != nil {
+			logger.Error("failed to serve", "err", err)
+		}
+	}()
+
+	<-stop
+	logger.Info("shutdown signal received")
+
+	server.GracefulStop()
+	logger.Info("server gracefully stopped")
+
+	wg.Wait()
 }
