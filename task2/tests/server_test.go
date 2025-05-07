@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"testing"
+	"time"
 	pb "vk-Service/task2/grpc"
 )
 
@@ -31,6 +32,8 @@ func TestConn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
+
+	time.Sleep(time.Second) // TODO: change for smth normal
 
 	pubReq := &pb.PublishRequest{Key: subject, Data: message}
 	if _, err := client.Publish(context.Background(), pubReq); err != nil {
